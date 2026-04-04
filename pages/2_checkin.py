@@ -3,55 +3,73 @@ from database import Database
 
 db = Database()
 
-st.title("🏐 Check-in Semanal")
+# --- ESTADO DA SESSÃO (Para acumular nomes antes de salvar) ---
+if "lista_provisoria" not in st.session_state:
+    # Ao carregar, puxamos o que já está no banco
+    _, confirmados_banco = db.get_active_members(), db.get_checkin_list()
+    st.session_state.lista_provisoria = confirmados_banco
 
-# Carregando dados
-membros_ativos, confirmados = db.get_active_members(), db.get_checkin_list()
+st.title("🏐 Check-in (Limite: 24 Vagas)")
 
-# 1. Gestão de Membros (Multiselect)
-st.subheader("Confirme sua presença")
-# Filtramos apenas quem é membro para o multiselect
-membros_confirmados = [n for n in confirmados if n in membros_ativos]
+# Carregar dados para os menus
+membros_ativos, _ = db.get_active_members()
 
+# --- 1. ADICIONAR NOMES À LISTA PROVISÓRIA ---
+st.subheader("Quem vais adicionar?")
+
+# Selecionar Membros
 selecao_membros = st.multiselect(
-    "Selecione os nomes:",
+    "Selecionar Membros:",
     options=membros_ativos,
-    default=membros_confirmados
+    default=[n for n in st.session_state.lista_provisoria if n in membros_ativos]
 )
 
-# 2. Gestão de Convidados (Texto + Adição)
-with st.expander("➕ Adicionar Convidado"):
-    novo_conv = st.text_input("Nome do convidado")
-    if st.button("Adicionar"):
-        if novo_conv and novo_conv not in confirmados:
-            nova_lista = list(set(confirmados + [novo_conv]))
-            db.update_checkin(nova_lista)
+# Adicionar Convidados (Vários)
+col_input, col_add = st.columns([0.7, 0.3])
+with col_input:
+    nome_convidado = st.text_input("Nome do Convidado:", key="input_conv")
+with col_add:
+    st.write(" ") # Alinhamento
+    if st.button("Adicionar ➕"):
+        if nome_convidado and nome_convidado not in st.session_state.lista_provisoria:
+            # Apenas adiciona à lista na memória do telemóvel
+            st.session_state.lista_provisoria.append(nome_convidado)
             st.rerun()
 
+# --- 2. BOTÃO DE CONFIRMAÇÃO FINAL (Grava no Google) ---
 st.divider()
 
-# 3. Lista de Presença com Opção de Remoção Individual
-st.subheader(f"✅ Confirmados ({len(confirmados)})")
+# Atualizamos a lista provisória com o que foi marcado no multiselect
+convidados_na_lista = [n for n in st.session_state.lista_provisoria if n not in membros_ativos]
+lista_para_salvar = list(set(selecao_membros + convidados_na_lista))
 
-if not confirmados:
-    st.info("Ninguém confirmado ainda.")
-else:
-    # Mostramos a lista e permitimos remover um a um (útil para convidados)
-    for nome in confirmados:
-        col_nome, col_btn = st.columns([0.8, 0.2])
-        col_nome.write(f"🔹 {nome}")
-        # Botão de remover individual
-        if col_btn.button("🗑️", key=f"rem_{nome}"):
-            nova_lista = [n for n in confirmados if n != nome]
-            db.update_checkin(nova_lista)
+if st.button("🚀 CONFIRMAR TODAS AS PRESENÇAS", use_container_width=True, type="primary"):
+    if len(lista_para_salvar) > 24:
+        st.error(f"Erro: A lista tem {len(lista_para_salvar)} nomes. O limite é 24!")
+    else:
+        db.update_checkin(lista_para_salvar)
+        st.session_state.lista_provisoria = lista_para_salvar
+        st.success("Presenças confirmadas com sucesso!")
+        st.balloons()
+
+# --- 3. EXIBIÇÃO DOS 24 LUGARES ---
+st.subheader("📋 Lista de Chamada (24 Vagas)")
+
+# Criamos 24 "slots" visuais
+for i in range(1, 25):
+    # Se já houver alguém naquela posição, mostra o nome
+    if i <= len(st.session_state.lista_provisoria):
+        nome = st.session_state.lista_provisoria[i-1]
+        col_n, col_del = st.columns([0.9, 0.1])
+        col_n.write(f"**{i}.** ✅ {nome}")
+        # Botão para remover da lista provisória antes de salvar
+        if col_del.button("🗑️", key=f"del_{i}"):
+            st.session_state.lista_provisoria.remove(nome)
             st.rerun()
+    else:
+        # Mostra o lugar vazio
+        st.write(f"*{i}.* 📭 Disponível")
 
-# 4. Botão de Sincronização Geral (Membros do Multiselect)
-if st.button("💾 SALVAR ALTERAÇÕES", use_container_width=True, type="primary"):
-    # Mantemos os convidados que já estavam na lista mas não estão no multiselect
-    convidados_atuais = [n for n in confirmados if n not in membros_ativos]
-    lista_final = list(set(selecao_membros + convidados_atuais))
-    
-    db.update_checkin(lista_final)
-    st.success("Lista sincronizada!")
-    st.balloons()
+# Aviso se exceder
+if len(st.session_state.lista_provisoria) > 24:
+    st.warning(f"Atenção: Existem {len(st.session_state.lista_provisoria) - 24} pessoas na lista de espera!")

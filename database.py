@@ -26,9 +26,9 @@ class Database:
 
     @st.cache_data(ttl=5)
     def get_checkin_list(_self):
-        """Retorna a lista de nomes confirmados para a próxima partida"""
         aba = _self.sh.worksheet("Checkin_Semana")
         dados = aba.get_all_records()
+        # Retornamos a lista completa, o limite de 24 será aplicado na interface (UI)
         return [linha['Nome'] for linha in dados] if dados else []
 
     def update_checkin(_self, lista_nomes):
