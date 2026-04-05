@@ -4,7 +4,7 @@ import streamlit as st
 try:
     st.title("Bem-vindo ao Sistema de Vôlei")
 
-    if st.button("Cadastrar novo membro ✏", use_container_width=True, type="primary"):
+    if st.button("Cadastrar novo membro 📝", use_container_width=True, type="primary"):
         # O caminho deve ser o nome do arquivo dentro da pasta pages/
         # ou o nome do arquivo principal se for voltar para o início
         st.switch_page("pages/1_register_user.py")
