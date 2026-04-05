@@ -10,7 +10,7 @@ if "lista_provisoria" not in st.session_state:
 # Busca a lista de jogadores cadastrados no banco para o Dropdown
 # Supondo que você tenha um método get_all_players() que retorna uma lista de strings
 if "jogadores_cadastrados" not in st.session_state:
-    st.session_state.jogadores_cadastrados = db.get_all_players()
+    st.session_state.jogadores_cadastrados = db.get_active_members()
 
 st.title("🏐 Check-in Vôlei")
 st.subheader("Garanta sua vaga nos 24!")
